@@ -1,16 +1,16 @@
-/*! @mainpage Blinking switch
+/*! @mainpage guia1 ejercicio 2 
  *
  * \section genDesc General Description
  *
- * This example makes LED_1 and LED_2 blink if SWITCH_1 or SWITCH_2 are pressed.
+ * al presionar el boton 1 parpadea led 1, con boton 2 parpadea led 2 y al presionar ambos juntos parpadea el led 3.
  *
  * @section changelog Changelog
  *
  * |   Date	    | Description                                    |
  * |:----------:|:-----------------------------------------------|
- * | 12/09/2023 | Document creation		                         |
+ * | 31/07/2024 | Document creation		                         |
  *
- * @author Albano Peñalva (albano.penalva@uner.edu.ar)
+ * @author Pedro Heit (pedren83@gmail.com)
  *
  */
 
@@ -35,7 +35,7 @@ void app_main(void){
 	LedsInit();
 	SwitchesInit();
     while(1)    {
-    	teclas  = SwitchesRead();
+    	teclas  = SwitchesRead(); 
     	switch(teclas){
     		case SWITCH_1:
     			LedToggle(LED_1);
