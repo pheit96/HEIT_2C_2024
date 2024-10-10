@@ -15,7 +15,7 @@
 #include "freertos/FreeRTOS.h"
 #include "freertos/task.h"
 #include "esp_rom_sys.h"
-#include "C:/Users/dgonz/esp/v5.1.2/esp-idf/components/freertos/FreeRTOS-Kernel-SMP/include/freertos/semphr.h"
+#include "C:\Users\cristi\esp\v5.1.4\esp-idf\components\freertos\FreeRTOS-Kernel\include\freertos\semphr.h"
 /*==================[macros and definitions]=================================*/
 #define US_RESOLUTION_HZ	1000000	/*!< 1usec */
 #define MSEC				1000	/*!< 1msec = 1000usec */
