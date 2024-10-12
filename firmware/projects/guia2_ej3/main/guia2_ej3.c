@@ -1,29 +1,46 @@
-/*! @mainpage Template
+/*! @mainpage Guia 2 / Ejercicio 3
  *
- * @section genDesc General Description
+ * @section genDesc General Description 
  *
- * This section describes how the program works.
- *
- * <a href="https://drive.google.com/...">Operation Example</a>
+ * La siguiente aplicacion realiza mediciones de distancia a partir de un sensor de ultrasonido, estas mediciones son visualizadas a traves de una pantalla LCD.
+ * Enciende leds en distintos rangos si la medida es menor de 10 cm no enciende ningun led, enciende 1 led, 2 leds o 3 leds si la distancia es mayor a 10cm, 20cm o 30 cm respectivamente.
+ * Tiene la funcionalidad mediante interrupciones con 2 switchs de detener la medicion (apagando LCD y leds) y de mantener la ultima medida en el lcd.
+ * A esta aplicacion tambien se le agrega una comunicacion serie que ademas muestra los valores medidos por monitor y a partir de las teclas "O" y "H" ingresadas por teclado se realizan las operaciones de las teclas 1 y 2 respectivamente.
+ * 
  *
  * @section hardConn Hardware Connection
  *
- * |    Peripheral  |   ESP32   	|
+ * |    HC-SR04     |   ESP32   	|
  * |:--------------:|:--------------|
- * | 	PIN_X	 	| 	GPIO_X		|
+ * | 	ECHO	 	| 	GPIO_3		|
+ * | 	TRIGGER	 	| 	GPIO_2		|
+ * | 	+5V  	 	| 	+5V	    	|
+ * | 	GND 	 	| 	GND	    	|
+ * 
+ * |    display LCD |   ESP32   	|
+ * |:--------------:|:--------------|
+ * | 	D1	     	| 	GPIO_20		|
+ * | 	D2	     	| 	GPIO_21  	|
+ * | 	D3 	     	| 	GPIO_22  	|
+ * | 	D4	     	| 	GPIO_23  	|
+ * | 	SEL_1	    | 	GPIO_19  	|
+ * | 	SEL_2	    | 	GPIO_18  	|
+ * | 	SEL_3     	|  	GPIO_9  	|
+ * | 	+5V	     	| 	+5V    		|
+ * | 	GND	     	| 	GND    		|
+ * 
+ * 
  *
  *
  * @section changelog Changelog
  *
  * |   Date	    | Description                                    |
  * |:----------:|:-----------------------------------------------|
- * | 12/09/2023 | Document creation		                         |
+ * | 10/10/2024 | Document creation		                         |
  *
- * @author Pedro Heit (pedren83@gmail.com)
+ * @author Pedro Heit (Pedren83@gmail.com)
  *
- */
-
-/*==================[inclusions]=============================================*/
+ /*==================[inclusions]=============================================*/
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -36,24 +53,56 @@
 #include "timer_mcu.h"
 #include "uart_mcu.h"
 /*==================[macros and definitions]=================================*/
-#define CONFIG_BLINK_PERIOD_TECLAS 200
-#define CONFIG_BLINK_PERIOD_MEDICION 100
+
+
+/** @def CONFIG_BLINK_PERIOD_MEDICION_US
+ *  @brief Periodo del timer (en us)
+*/
 #define CONFIG_BLINK_PERIOD_MEDICION_US 1000000
 /*==================[internal data definition]===============================*/
+
+
+/** @def hold
+ *  @brief Variable global de tipo booleana que indica si se debe mantener la ultima medicion en LCD */
 bool hold = false;
+
+/** @def medir 
+ * @brief Variable global de tipo booleana que indica si se realizaran las mediciones */
 bool medir = true;
+
+/** @def valor_medicion
+ *  @brief Variable global de tipo entero sin singno de 8 bits para registrar los velores medidos  */
 uint16_t valor_medicion = 0;
-uint8_t teclas = 0;
+
+/** @def medicion_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medicion*/
 TaskHandle_t medicion_task_handle = NULL;
+
+/** @def mostrar_task_handle 
+ * @brief Objeto de tipo TaskHandle_t que se asocia con la tarea mostrar*/
 TaskHandle_t mostrar_task_handle = NULL;
+uint16_t valor_medicion = 0;
+
+/** @def hold
+ *  @brief Variable global de tipo entero sin signo de 8 bits destinada a guardar el valor de las teclas por puerto serie*/
+uint8_t teclas = 0;
+
 /*==================[internal functions declaration]=========================*/
 
+/**
+ * @fn FuncTimerA(void *param)
+ * @param param parametro que no se utiliza
+ * @brief envia una notificacion a las tareas medicion y mostrar 
+*/
 void FuncTimerA(void *param)
 {
 	vTaskNotifyGiveFromISR(medicion_task_handle, pdFALSE);
 	vTaskNotifyGiveFromISR(mostrar_task_handle, pdFALSE);
 }
 
+/** @fn Controlar_Leds(void)
+ * @brief Funcion encargada de controlar el encendido de los leds.
+*/
 void Controlar_Leds(void)
 {
 
@@ -92,6 +141,9 @@ void Controlar_Leds(void)
 	}
 }
 
+/** @fn medicion(void *pvParameter)
+ * @brief Tarea realizada para tomar el valor de la medicion y guardar.
+*/
 static void medicion(void *pvParameter)
 {
 
@@ -101,11 +153,13 @@ static void medicion(void *pvParameter)
 		if (medir == true)
 		{
 			valor_medicion = HcSr04ReadDistanceInCentimeters();
-			UartSendString(UART_PC, (char *)UartItoa(valor_medicion, 10));
-			UartSendString(UART_PC, "cm \r\n");
 		}
 	}
 }
+
+/** @fn mostrar(void *pvParameter)
+ * @brief Tarea para escribir la distancia en LCD y actualizar el encendido de los leds.
+*/
 static void mostrar(void *pvParameter)
 {
 
@@ -130,16 +184,32 @@ static void mostrar(void *pvParameter)
 	}
 }
 
+/**
+ * @fn Interrupcion_tecla_1(void)
+ * @brief Cambia el estado de la variable booleana medir
+ * 
+*/
 void Interrupcion_tecla_1(void)
 {
 	medir = !medir;
 }
 
+
+/**
+ * @fn Interrupcion_tecla_2(void)
+ * @brief Cambia el estado de la variable booleana hold
+ * 
+*/
 void Interrupcion_tecla_2(void)
 {
 	hold = !hold;
 }
 
+/**
+ * @fn Leer_teclas() 
+ * @brief Lee los valores ingresados por pantalla y enviados por puerto serie
+ * 
+*/
 void Leer_teclas()
 {
 	UartReadByte(UART_PC, &teclas);
@@ -156,17 +226,19 @@ void Leer_teclas()
 	}
 }
 
+
 /*==================[external functions definition]==========================*/
 void app_main(void)
 {
-	// creo el timer
+	/* Inicialización de timer Timer_medicion */
 	timer_config_t Timer_medicion = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MEDICION_US,
 		.func_p = FuncTimerA,
 		.param_p = NULL};
 	TimerInit(&Timer_medicion);
-	// Inicializo LCD, Switchs y leds
+
+	/* Inicialización de LCD, Leds, Sensor de Ultrasonido, Switchs  y configuro el puerto serie UART*/
 	LcdItsE0803Init();
 	LedsInit();
 	HcSr04Init(GPIO_3, GPIO_2);
@@ -180,7 +252,8 @@ void app_main(void)
 	SwitchesInit();
 	SwitchActivInt(SWITCH_1, &Interrupcion_tecla_1, NULL);
 	SwitchActivInt(SWITCH_2, &Interrupcion_tecla_2, NULL);
-	// Creo las Tareas
+
+	/* Creacion de las Tareas medicion, mostrar y disparo del timer */
 	xTaskCreate(&mostrar, "mostrar", 512, NULL, 5, &mostrar_task_handle);
 	xTaskCreate(&medicion, "medicion", 512, NULL, 5, &medicion_task_handle);
 	TimerStart(Timer_medicion.timer);
