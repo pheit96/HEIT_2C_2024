@@ -1,25 +1,17 @@
-/*! @mainpage Template
+/*! @mainpage Proyecto 2 ejercicio 4
  *
- * @section genDesc General Description
+ * \section genDesc General Description
  *
- * This section describes how the program works.
- *
- * <a href="https://drive.google.com/...">Operation Example</a>
- *
- * @section hardConn Hardware Connection
- *
- * |    Peripheral  |   ESP32   	|
- * |:--------------:|:--------------|
- * | 	PIN_X	 	| 	GPIO_X		|
- *
+ * En este proyecto se trabaja sobre la conversion analogica-digital
  *
  * @section changelog Changelog
  *
  * |   Date	    | Description                                    |
  * |:----------:|:-----------------------------------------------|
- * | 12/09/2023 | Document creation		                         |
+ * | 10/10/2024 | Inicio del proyecto		                     |
+ * | 10/10/2024 | Documentacion del proyecto                     |
  *
- * @author Albano Peñalva (albano.penalva@uner.edu.ar)
+ * @author Heit Pedro (pedren83@gmail.com)
  *
  */
 
@@ -37,10 +29,31 @@
 /*==================[macros and definitions]=================================*/
 #define CONFIG_BLINK_PERIOD_MEDICION_US 2000
 #define CONFIG_BLINK_PERIOD_ECG_US 4000
+
+
+/**
+ * @def BUFFER_SIZE 
+ * @brief Tamaño del vector que contiene los datos de un ECG
+*/
 #define BUFFER_SIZE 231
 /*==================[internal data definition]===============================*/
+
+/** 
+ * @def AD_task_handle 
+ * @brief elemento utilizado para manejar las tareas con interrupciones
+*/
 TaskHandle_t AD_task_handle = NULL;
+
+/** 
+ * @def DA_task_handle 
+ * @brief elemento utilizado para manejar las tareas con interrupciones
+*/
 TaskHandle_t DA_task_handle = NULL;
+
+/** 
+ * @def ecg 
+ * @brief vector que contiene todos los datos necesario para levantar una señal de ECG
+*/
 const char ecg[BUFFER_SIZE] = {
     76, 77, 78, 77, 79, 86, 81, 76, 84, 93, 85, 80,
     89, 95, 89, 85, 93, 98, 94, 88, 98, 105, 96, 91,
@@ -61,16 +74,29 @@ const char ecg[BUFFER_SIZE] = {
     74, 67, 71, 78, 72, 67, 73, 81, 77, 71, 75, 84, 79, 77, 77, 76, 76,
 };
 /*==================[internal functions declaration]=========================*/
+
+/** 
+ * @fn FuncTimerA()
+ * @brief Involucrada en enviar una notificación para poder continuar la tarea de conversion AD
+*/
 void FuncTimerA(void *param)
 {
 	vTaskNotifyGiveFromISR(AD_task_handle, pdFALSE);
 }
 
+/** 
+ * @fn FuncTimerB()
+ * @brief Involucrada en enviar una notificación para poder continuar la tarea de conversion DA
+*/
 void FuncTimerB(void *param)
 {
 	vTaskNotifyGiveFromISR(DA_task_handle, pdFALSE);
 }
 
+/** 
+ * @fn ConversorAD_Task()
+ * @brief Tarea que hace la conversion analogico digital
+*/
 static void ConversorAD_Task(void *pvParameter)
 {
 	volatile uint16_t valor = 0;
@@ -83,6 +109,11 @@ static void ConversorAD_Task(void *pvParameter)
 	}
 }
 
+
+/** 
+ * @fn ConversorDA_Task()
+ * @brief Tarea que hace la conversion digital analogica
+*/
 static void ConversorDA_Task(void *pvParameter)
 {
 	volatile uint8_t i = 0;
@@ -101,14 +132,14 @@ static void ConversorDA_Task(void *pvParameter)
 void app_main(void)
 {
 
-	// Configuro e inicializo el timer
+	/* Inicialización de timer para la conversion AD */
 	timer_config_t Timer_conversorAD = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MEDICION_US,
 		.func_p = FuncTimerA,
 		.param_p = NULL};
 	TimerInit(&Timer_conversorAD);
-
+	/* Inicialización de timer para la conversion DA */
 	timer_config_t Timer_conversorDA = {
 		.timer = TIMER_B,
 		.period = CONFIG_BLINK_PERIOD_ECG_US,
@@ -116,7 +147,7 @@ void app_main(void)
 		.param_p = NULL};
 	TimerInit(&Timer_conversorDA);
 
-	// Configuro conversor AD
+	/* Configuracion puerto de entrada analogica*/
 	analog_input_config_t conversorAD = {
 		.input = CH1,		/*!< Inputs: CH0, CH1, CH2, CH3 */
 		.mode = ADC_SINGLE, /*!< Mode: single read or continuous read */
@@ -125,7 +156,7 @@ void app_main(void)
 		.sample_frec = 0};
 	AnalogInputInit(&conversorAD);
 	AnalogOutputInit();
-	// Configuro UART
+	/* Configuracion puerto UART*/
 	serial_config_t conf_puerto = {
 		.port = UART_PC,
 		.baud_rate = 115200,
@@ -134,10 +165,11 @@ void app_main(void)
 	};
 	UartInit(&conf_puerto);
 
+	/* Creo las tareas de conversion AD y DA*/
 	xTaskCreate(&ConversorAD_Task, "convertAD", 1024, NULL, 5, &AD_task_handle);
 	xTaskCreate(&ConversorDA_Task, "convertDA", 1024, NULL, 5, &DA_task_handle);
 
-	// Arranco los timers
+	/* Disparo de timers */
 	TimerStart(Timer_conversorAD.timer);
 	TimerStart(Timer_conversorDA.timer);
 }
