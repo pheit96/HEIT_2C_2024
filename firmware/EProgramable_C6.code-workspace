@@ -1,25 +1,48 @@
 {
     "folders": [
         {
-            "path": "./drivers"
+            "name": "drivers",
+            "path": "drivers"
         },
         {
-            "path": "./projects/0_blinking"
+            "name": "0_blinking",
+            "path": "projects/0_blinking"
         },
         {
-            "path": "./projects/1_blinking_switch"
+            "name": "1_blinking_switch",
+            "path": "projects/1_blinking_switch"
         },
         {
+            "name": "2_blinking_tasks",
             "path": "projects/2_blinking_tasks"
         },
         {
+            "name": "3_blinking_timer",
             "path": "projects/3_blinking_timer"
         },
         {
-            "path": "./projects/x_template"
+            "name": "x_template",
+            "path": "projects/x_template"
         },
         {
+            "name": "guia1_ej2",
+            "path": "projects/guia1_ej2"
+        },
+        {
+            "name": "guia1_ej3",
+            "path": "projects/guia1_ej3"
+        },
+        {
+            "name": "guia1_ej4_5_6",
             "path": "projects/guia1_ej4_5_6"
+        },
+        {
+            "name": "guia2_ej1",
+            "path": "projects/guia2_ej1"
+        },
+        {
+            "name": "guia2_ej2",
+            "path": "projects/guia2_ej2"
         }
     ],
     "settings": {
