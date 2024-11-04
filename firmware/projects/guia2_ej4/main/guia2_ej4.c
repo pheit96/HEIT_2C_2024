@@ -11,7 +11,7 @@
  * | 10/10/2024 | Inicio del proyecto		                     |
  * | 10/10/2024 | Documentacion del proyecto                     |
  *
- * @author Heit Pedro (pedren83@gmail.com)123123
+ * @author Heit Pedro (pedren83@gmail.com)
  *
  */
 
