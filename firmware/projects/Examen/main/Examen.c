@@ -47,46 +47,77 @@
 #include "analog_io_mcu.h"
 
 /*==================[macros and definitions]=================================*/
-/** @def CONFIG_BLINK_PERIOD_MEDICION_US
+/** @def CONFIG_BLINK_PERIOD_MUESTREO_DISTANCIA
  *  @brief Periodo del timer (en us)
 */
 #define CONFIG_BLINK_PERIOD_MUESTREO_DISTANCIA 500000
 
-/** @def CONFIG_BLINK_PERIOD_MEDICION_US
+/** @def CONFIG_BLINK_PERIOD_MUESTREO_PRECAUCION
  *  @brief Periodo del timer (en us)
 */
 #define CONFIG_BLINK_PERIOD_MUESTREO_PRECAUCION 1000000
 
-/** @def CONFIG_BLINK_PERIOD_MEDICION_US
+/** @def CONFIG_BLINK_PERIOD_MUESTREO_ACELEROMETRO
  *  @brief Periodo del timer (en us)
 */
 #define CONFIG_BLINK_PERIOD_MUESTREO_ACELEROMETRO 10000
 
 /*==================[internal data definition]===============================*/
-
+/** @def medir_distancia_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medicion*/
 TaskHandle_t medir_distancia_task_handle = NULL;
+
+/** @def precaucion_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea Alarma1*/
 TaskHandle_t precaucion_task_handle = NULL;
+
+/** @def acelerometro_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea control_acelerometro*/
 TaskHandle_t acelerometro_task_handle = NULL;
+
+/** @def peligro_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medicion*/
 TaskHandle_t peligro_task_handle = NULL;
+
+/** @def valor_medicion
+ *  @brief Variable global para almacenar el valor de medicion*/
 uint16_t valor_medicion = 0;
 
 /*==================[internal functions declaration]=========================*/
 
+/**
+ * @fn FuncTimerA(void *param)
+ * @param param parametro que no se utiliza
+ * @brief envia una notificacion a las tareas medicion y Alarma2 
+*/
 void FuncTimerA(void *param)
 {
 	vTaskNotifyGiveFromISR(medir_distancia_task_handle, pdFALSE);
 	vTaskNotifyGiveFromISR(peligro_task_handle, pdFALSE);
 }
 
+/**
+ * @fn FuncTimerB(void *param)
+ * @param param parametro que no se utiliza
+ * @brief envia una notificacion a la tarea Alarma1
+*/
 void FuncTimerB(void *param)
 {
 	vTaskNotifyGiveFromISR(precaucion_task_handle, pdFALSE);
 }
 
+
+/**
+ * @fn FuncTimerC(void *param)
+ * @param param parametro que no se utiliza
+ * @brief envia una notificacion a la Tarea control_acelerometro 
+*/
 void FuncTimerC(void *param)
 {
 	vTaskNotifyGiveFromISR(acelerometro_task_handle, pdFALSE);
 }
+
+
 
 typedef struct
 {
@@ -94,6 +125,10 @@ typedef struct
 	io_t dir;	/*!< GPIO direction '0' IN;  '1' OUT*/
 } gpioConf_t;
 
+
+/** @fn Controlar_Leds(void)
+ * @brief Funcion encargada de controlar el encendido de los leds y enviar mensajes por UART informando la distancia de los vehiculos a traves de mensajes de precaucion y peligro.
+*/
 void Controlar_Leds(void)
 {
 
@@ -127,6 +162,10 @@ void Controlar_Leds(void)
 	}
 }
 
+
+/** @fn medicion(void *pvParameter)
+ * @brief Tarea realizada para tomar el valor de la medicion y guardar.
+*/
 static void medicion(void *pvParameter)
 {
 
@@ -139,6 +178,10 @@ static void medicion(void *pvParameter)
 	}
 }
 
+
+/** @fn Alarma1(void *pvParameter)
+ * @brief Tarea realizada para hacer sonar un buzzer cada 1 segundo.
+*/
 static void Alarma1(void *pvParameter)
 {
 
@@ -152,7 +195,9 @@ static void Alarma1(void *pvParameter)
 		GPIOOff(GPIO_20);
 }
 }
-
+/** @fn Alarma2(void *pvParameter)
+ * @brief Tarea realizada para hacer sonar un buzzer cada 500 ms.
+*/
 static void Alarma2(void *pvParameter)
 {
 	
@@ -166,7 +211,9 @@ static void Alarma2(void *pvParameter)
 		GPIOOff(GPIO_21);
 }
 }
-
+/** @fn control_acelerometro(void *pvParameter)
+ * @brief Tarea realizada para leer los valores de los puertos analogicos comparar e informar si el ciclista sufrio una caida.
+*/
 static void control_acelerometro(void *pvParameter){
 				float valorX = 0;
 				float valorY = 0;
@@ -185,17 +232,18 @@ static void control_acelerometro(void *pvParameter){
 		if(G>4){
 			UartSendByte(UART_CONNECTOR, "Caida detectada.\r\n");
 		}
+		G=0;
 		
 	}
 				
 
 }
 
-}
+
 
 /*==================[external functions definition]==========================*/
 void app_main(void)
-{
+{/* Inicialización de timer Timer_medicion */
 	timer_config_t Timer_medicion = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MUESTREO_DISTANCIA,
@@ -203,6 +251,7 @@ void app_main(void)
 		.param_p = NULL};
 	TimerInit(&Timer_medicion);
 
+/* Inicialización de timer Timer_Alarma1 */
 	timer_config_t Timer_Alarma1 = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MUESTREO_PRECAUCION,
@@ -210,15 +259,17 @@ void app_main(void)
 		.param_p = NULL};
 	TimerInit(&Timer_Alarma1);
 
+
+/* Inicialización de timer Timer_acelerometro */
 	timer_config_t Timer_acelerometro = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MUESTREO_ACELEROMETRO,
 		.func_p = FuncTimerC,
 		.param_p = NULL};
 	TimerInit(&Timer_acelerometro);
-
+/* Inicialización de LCD, Leds, Sensor de Ultrasonido, configuro entradas analogicas y configuro el puerto serie UART*/
 	HcSr04Init(GPIO_3, GPIO_2);
-
+	LedsInit();
 	serial_config_t conf_puerto = {
 		.port = UART_CONNECTOR,
 		.baud_rate = 9600,
@@ -234,7 +285,7 @@ void app_main(void)
 		.param_p = NULL,	/*!< Pointer to callback function parameters (only for continuous mode) */
 		.sample_frec = 0};
 	AnalogInputInit(&conversorAD);
-
+ /* configuro GPIO para el uso de buzzers*/
 	gpioConf_t pines[5] =
 		{{GPIO_20, GPIO_OUTPUT},
 		 {GPIO_21, GPIO_OUTPUT},
@@ -246,7 +297,7 @@ void app_main(void)
 		GPIOInit(pines[i].pin, pines[i].dir);
 	}
 
-	
+	/* Inicialización de timers y creacion de tareas*/
 	TimerStart(Timer_medicion.timer);
 	TimerStart(Timer_Alarma1.timer);
 	TimerStart(Timer_acelerometro.timer);
