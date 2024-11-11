@@ -56,30 +56,56 @@
 */
 #define TIEMPO_ENTRE_MEDIDAS 10
 
+/** @def velocidad_maxima
+ *  @brief Variable global de tipo flotante para registrar la velocidad maxima del vehiculo*/
 float velocidad_maxima=0;
+/** @def velocidad
+ *  @brief Variable global de tipo flotante para registrar la velocidad instantanea*/
 float velocidad=0;
+/** @def distancia_metros
+ *  @brief Variable global de tipo flotante para registrar la distancia a la que se encuentra el vehiculo*/
 float distancia_metros=0;
+/** @def distancia1
+ *  @brief Variable global de tipo flotante para registrar la primera distancia para calcular la velocidad*/
 float distancia1=0;
+/** @def distancia2
+ *  @brief Variable global de tipo flotante para registrar la segunda distancia para calcular la velocidad*/
 float distancia2=0;
+/** @def peso_total
+ *  @brief Variable global de tipo flotante para registrar el peso total del camion*/
 float peso_total=0;
+/** @def teclas
+ *  @brief Variable global de tipo entero de 8 bits destinada a la lectura de teclas por UART*/
 uint8_t teclas=0;
-/** @def CONFIG_BLINK_PERIOD_MUESTREO_DISTANCIA
+
+/** @def CONFIG_BLINK_PERIOD_MUESTREO_PESO
  *  @brief Periodo del timer (en us)
 */
 #define CONFIG_BLINK_PERIOD_MUESTREO_PESO 5000
 /*==================[internal data definition]===============================*/
+/** @def medir_distancia_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medicion*/
 TaskHandle_t medir_distancia_task_handle = NULL;
+
+/** @def pesar_camion_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea Medir_Peso*/
 TaskHandle_t pesar_camion_task_handle = NULL;
 
 /*==================[internal functions declaration]=========================*/
 
-
+/**
+ * @fn FuncTimerA(void *param)
+ * @param param parametro que no se utiliza
+ * @brief envia una notificacion a la tarea Medir_Peso 
+*/
 void FuncTimerA(void *param)
 {
 	vTaskNotifyGiveFromISR(pesar_camion_task_handle, pdFALSE);
 }
 
-
+/** @fn Controlar_Leds(void)
+ * @brief Funcion encargada de controlar el encendido de los leds segun la velocidad del camion al ingresar al sistema de pesaje
+*/
 void Controlar_Leds(void)
 {
 
@@ -110,7 +136,9 @@ void Controlar_Leds(void)
 		}
 	}
 }
-
+/** @fn Medir_Velocidad()
+ * @brief funcion encargada de calcular la velocidad instantanea del camion.
+*/
 void Medir_Velocidad(){
 			
 			velocidad=(distancia1-distancia2)/0.010;//0.010 ventana de tiempo entre las medidas de distancia tomadas
@@ -120,6 +148,9 @@ void Medir_Velocidad(){
 			Controlar_Leds();
 }
 
+/** @fn medicion(void *pvParameter)
+ * @brief Tarea encargada de medir la distancia del camion.
+*/
 static void medicion(void *pvParameter)
 {
 
@@ -137,6 +168,9 @@ static void medicion(void *pvParameter)
 	}
 }
 
+/** @fn Medir_Peso(void *pvParameter)
+ * @brief Tarea realizada para calcular el peso del camion.
+*/
 static void Medir_Peso(void *pvParameter){
 			float promedio1=0;
 			float promedio2=0;
@@ -172,6 +206,11 @@ static void Medir_Peso(void *pvParameter){
 		}
 }
 
+/**
+ * @fn Leer_teclas() 
+ * @brief Lee los valores ingresados por pantalla y enviados por puerto serie
+ * 
+*/
 void Leer_teclas()
 {
 	UartReadByte(UART_PC, &teclas);
@@ -197,7 +236,7 @@ void Leer_teclas()
 
 void app_main(void){
 
-
+/* Inicialización de timer Timer_medicion_peso */
 	timer_config_t Timer_medicion_peso = {
 		.timer = TIMER_A,
 		.period = CONFIG_BLINK_PERIOD_MUESTREO_PESO,
@@ -205,6 +244,8 @@ void app_main(void){
 		.param_p = NULL};
 	TimerInit(&Timer_medicion_peso);
 
+
+/* Inicialización de Leds, Sensor de Ultrasonido, configuro entradas analogicas y configuro el puerto serie UART*/
 	HcSr04Init(GPIO_3, GPIO_2);
 	LedsInit();
 	GPIOInit(GPIO_20, GPIO_OUTPUT);
@@ -232,6 +273,7 @@ void app_main(void){
 	};
 	UartInit(&conf_puerto);
 
+	/* Creo las tareas y doy start al timer */
 		xTaskCreate(&medicion,"Medicion",512,NULL,5,&medir_distancia_task_handle);
 		xTaskCreate(&Medir_Peso,"Medir Peso",512,NULL,5,&pesar_camion_task_handle);
 		TimerStart(Timer_medicion_peso.timer);
