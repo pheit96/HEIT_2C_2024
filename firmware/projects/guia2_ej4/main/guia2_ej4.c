@@ -81,7 +81,7 @@ const char ecg[BUFFER_SIZE] = {
 */
 void FuncTimerA(void *param)
 {
-	vTaskNotifyGiveFromISR(AD_task_handle, pdFALSE);
+	vTaskNotifyGiveFromISR(AD_task_handle, pdFALSE);//123
 }
 
 /** 
