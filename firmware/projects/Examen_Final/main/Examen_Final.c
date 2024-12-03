@@ -2,15 +2,28 @@
  *
  * @section genDesc General Description
  *
- * This section describes how the program works.
- *
- * <a href="https://drive.google.com/...">Operation Example</a>
+ * Se diseña un control de agua y alimento para mascotas basado en la ESP-EDU el cual mide el nivel de agua a partir de un sensor de ultrasonido y la cantidad de alimento contenido en el plato a partir de una galga analogica.
  *
  * @section hardConn Hardware Connection
  *
- * |    Peripheral  |   ESP32   	|
+ * |    galga  |   ESP32   	|
  * |:--------------:|:--------------|
- * | 	PIN_X	 	| 	GPIO_X		|
+ * | 	medicion analogica	 	| 	CH1		|
+ * | 	+5V  	 	| 	+5V	    	|
+ * | 	GND 	 	| 	GND	    	|
+ * 
+ * |    electrovalvulas |   ESP32   	|
+ * |:--------------:|:--------------|
+ * | 	AGUA	 	| 	GPIO20		|
+ * | 	ALIMENTO  	 	| 	GPIO21	    	|
+ * 
+ * 
+ * ||    HC-SR04     |   ESP32   	|
+ * |:--------------:|:--------------|
+ * | 	ECHO	 	| 	GPIO_3		|
+ * | 	TRIGGER	 	| 	GPIO_2		|
+ * | 	+5V  	 	| 	+5V	    	|
+ * | 	GND 	 	| 	GND	    	|
  *
  *
  * @section changelog Changelog
@@ -19,7 +32,7 @@
  * |:----------:|:-----------------------------------------------|
  * | 12/09/2023 | Document creation		                         |
  *
- * @author Albano Peñalva (albano.penalva@uner.edu.ar)
+ * @author Pedro Heit (Pedren83@gmail.com)
  *
  */
 
@@ -33,23 +46,50 @@
 #include "analog_io_mcu.h"
 #include "hc_sr04.h"
 /*==================[macros and definitions]=================================*/
+/** @def PERIODO_CONTROL_AGUA_ALIMENTO
+ *  @brief Periodo de delay para controlar el nivel de agua y la cantidad de alimento que se tiene
+*/
 #define PERIODO_CONTROL_AGUA_ALIMENTO 200
 
-TaskHandle_t medir_agua_task_handle = NULL;
-TaskHandle_t medir_comida_task_handle = NULL;
+/** @def cantidad_de_agua
+ *  @brief Variable global de tipo flotante para registrar el volumen de agua contenido en el recipiente*/
+float cantidad_de_agua=0;
+
+/** @def volumen_agua
+ *  @brief Variable global de tipo flotante para registrar la distancia desde el ultrasonido hasta la superficie del agua en el recipiente*/
+float volumen_agua=0;
+
+/** @def peso_comida
+ *  @brief Variable global de tipo flotante para registrar el peso de alimento en el plato*/
+float peso_comida=0;
+
+/** @def teclas
+ *  @brief Variable global de tipo entero sin signo de 8 bits para leer las teclas ingresadas por puerto serie UART*/
+uint8_t teclas=0;
+
+/** @def iniciar
+ *  @brief Variable global de tipo booleana que da el estado de funcionamiento del sistema*/
+bool iniciar=1;
 
 /*==================[internal data definition]===============================*/
-float cantidad_de_agua=0;
-float volumen_agua=0;
-float peso_comida=0;
-uint8_t teclas=0;
+
+/** @def medir_agua_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medicion*/
+TaskHandle_t medir_agua_task_handle = NULL;
+
+/** @def medir_comida_task_handle
+ *  @brief Objeto de tipo TaskHandle_t que se asocia con la tarea medir comida*/
+TaskHandle_t medir_comida_task_handle = NULL;
 
 /*==================[internal functions declaration]=========================*/
 
+/** @fn medicion(void *pvParameter)
+ * @brief Tarea encargada de medir la cantidad de agua que se registra en el recipiente.
+*/
 static void medicion(void *pvParameter)
 {
 
-	while (true)
+	while (iniciar)
 	{
 
 		volumen_agua= HcSr04ReadDistanceInCentimeters();
@@ -69,10 +109,14 @@ static void medicion(void *pvParameter)
 	}
 }
 
+
+/** @fn medir_comida(void *pvParameter)
+ * @brief Tarea encargada de pesar la comida contenida en el plato sobre la balanza.
+*/
 static void medir_comida(void *pvParameter){
 	uint16_t valor_galga=0;
 
-	while(true){
+	while(iniciar){
 	
 	AnalogInputReadSingle(CH1, &valor_galga);
 
@@ -86,7 +130,7 @@ static void medir_comida(void *pvParameter){
 			GPIOOff(GPIO_21)
 		}
 	}
-	
+
 	UartSendString(UART_PC,"Alimento: ");
 	UartSendString(UART_PC,(char *)UartItoa(peso_comida,10));
 	UartSendString(UART_PC," gr.\r\n");
@@ -94,21 +138,31 @@ static void medir_comida(void *pvParameter){
 	}
 }
 
+/** @fn Leer_teclas(void *pvParameter)
+ * @brief Lee los valores enviados por puerto serie UART e inicia o detiene el sistema de control de comida .
+*/
 void Leer_teclas()
 {
 	UartReadByte(UART_PC, &teclas);
 	if (teclas == '1')
 	{
-		GPIOOn(GPIO_20);
-		UartSendString(UART_PC,"Barrera Abierta.\r\n");
-
+		iniciar= !iniciar;
 	}
-	
+	if(iniciar==true){
+		UartSendString(UART_PC,"Sistema funcionando.\r\n");
+		LedOn(LED_1);
+	}
+	else{
+		if(iniciar==false){
+			UartSendString(UART_PC,"Sistema desactivado.\r\n");
+			LedOff(LED_1);
+		}
+	}
 }
 /*==================[external functions definition]==========================*/
 void app_main(void){
 
-
+/* Inicialización de Leds, Sensor de Ultrasonido, configuro entradas analogicas y configuro el puerto serie UART*/
 	HcSr04Init(GPIO_3, GPIO_2);
 	LedsInit();
 	GPIOInit(GPIO_20, GPIO_OUTPUT);
@@ -131,6 +185,7 @@ void app_main(void){
 
 	AnalogInputInit(&conversorAD);
 
+/* Creo las tareas*/
 xTaskCreate(&medicion,"Medicion",512,NULL,5,&medir_agua_task_handle);
 xTaskCreate(&medir_comida,"Control de la cantidad de comida",512,NULL,5,&medir_comida_task_handle);
 
